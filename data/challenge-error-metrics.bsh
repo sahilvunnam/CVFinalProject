@@ -1,0 +1,175 @@
+/**
+ * Script to calculate the segmentation error between some 2D 
+ * original labels and their corresponding proposed labels. 
+ * 
+ * The evaluation metrics are:
+ *  - Pixel error: 1 - maximal F-score of pixel similarity
+ *  - Minimum Splits & Mergers Warping error
+ *  - Foreground-restricted Rand error: 1 - maximal F-score of 
+ *  foreground-restricted Rand index
+ *  - Maximal foreground-restricted Rand score after thinning
+ *  - Maximal foreground-restricted information theoretic score after thinning
+ * 
+ * @author Ignacio Arganda-Carreras (iarganda@mit.edu)
+ * @version January 19, 2016
+ */
+  
+import trainableSegmentation.metrics.*;
+import ij.WindowManager;
+import ij.gui.GenericDialog;
+import ij.IJ;
+import ij.ImageStack;
+import ij.ImagePlus;
+ 
+  
+// Get the list of images that are open
+ids = WindowManager.getIDList();
+  
+if ( ids == null || ids.length < 2 )
+{
+    IJ.showMessage( "You should have at least two images open." );
+    return;
+}
+  
+// Get all the titles of the open images        
+titles = new String[ ids.length ];
+for ( int i = 0; i < ids.length; ++i )
+{
+    titles[ i ] = ( WindowManager.getImage( ids[ i ] ) ).getTitle();
+}
+  
+// Create dialog        
+gd = new GenericDialog( "Evaluate segmentation results" );
+          
+gd.addMessage( "Image Selection:" );
+current = WindowManager.getCurrentImage().getTitle();
+gd.addChoice( "Original_labels", titles, current );
+gd.addChoice( "Proposal", titles, current.equals( titles[ 0 ] ) ? titles[ 1 ] : titles[ 0 ] );
+          
+gd.addMessage( "Segmentation error metrics:" );
+gd.addCheckbox( "Maximal F-score pixel_error", false );
+gd.addCheckbox( "Minimum split-mergers ratio", false );
+gd.addCheckbox( "Maximal F-Score foreground-restricted Rand index", false );
+gd.addCheckbox( "Maximal foreground-restricted Rand score after thinning", true );
+gd.addCheckbox( "Maximal foreground-restricted information theoretic score after thinning", true );
+
+gd.addMessage( "Data selection:" );
+gd.addCheckbox( "Use only 33%", true );
+gd.addCheckbox( "Binary proposal", false );
+ 
+gd.showDialog();
+          
+if (gd.wasCanceled()) 
+    return;
+          
+originalLabels = WindowManager.getImage( ids[ gd.getNextChoiceIndex() ] );
+proposedLabels = WindowManager.getImage( ids[ gd.getNextChoiceIndex() ] );
+
+calculatePixelError = gd.getNextBoolean();
+calculateWarpingError = gd.getNextBoolean();
+calculateRandError = gd.getNextBoolean();
+calculateVRandAfterThinning = gd.getNextBoolean();
+calculateVInfoAfterThinning = gd.getNextBoolean();
+
+use33 = gd.getNextBoolean();  
+binaryProposal = gd.getNextBoolean();
+
+// Remove channel info from name
+if( proposedLabels.getTitle().endsWith(" - C=0" ) )
+{
+	title = proposedLabels.getTitle().substring( 0, proposedLabels.getTitle().indexOf(" -") );
+	proposedLabels.setTitle( title );
+}
+// Normalized non-binary 8-bit images
+if( proposedLabels.getType() == ImagePlus.GRAY8 && binaryProposal == false 
+	|| proposedLabels.getType() == ImagePlus.GRAY32 && proposedLabels.getProcessor().getMax() > 1.0 )
+{
+	IJ.run( proposedLabels, "32-bit", "" );
+	IJ.run( proposedLabels, "Enhance Contrast...", "saturated=0.3 normalize process_all");
+	proposedLabels.changes =  false;
+}
+
+IJ.log("---");
+IJ.log("Evaluating segmentation...");
+IJ.log("  Original labels: " + originalLabels.getTitle());
+IJ.log("  Proposed labels: " + proposedLabels.getTitle() + "\n");
+
+proposalTitle = proposedLabels.getTitle();
+
+if( use33 )
+{
+	// Get only one slice every 3 (starting at 2)
+	is1 = new ImageStack(originalLabels.getWidth(), originalLabels.getHeight());
+	is2 = new ImageStack(originalLabels.getWidth(), originalLabels.getHeight());
+	
+	for(int i=2; i<=originalLabels.getImageStackSize(); i+=3)
+	{
+		is1.addSlice(originalLabels.getImageStack().getSliceLabel( i ), originalLabels.getImageStack().getProcessor( i ) );
+		is2.addSlice(proposedLabels.getImageStack().getSliceLabel( i ), proposedLabels.getImageStack().getProcessor( i ) );
+	}
+	originalLabels = new ImagePlus("original labels 33%", is1);
+	proposedLabels = new ImagePlus("proposed labels 33%", is2);
+	
+	IJ.log("Using 33% of test set...");
+}
+else
+	IJ.log("Using 100% of test set...");
+
+//originalLabels.show();
+//proposedLabels.show();
+  
+// Calculate segmentation error with the selected metrics
+  
+if( calculatePixelError )
+{
+    IJ.log("\nCalculating pixel error...");
+    metric = new PixelError( originalLabels, proposedLabels );
+    maxThres = binaryProposal ? 0.0 : 1.0;
+    maxFScore = metric.getPixelErrorMaximalFScore( 0.0, maxThres, 0.1 ); 
+    IJ.log("  Minimum pixel error: " + (1.0 - maxFScore) ); 
+}
+ 
+if( calculateWarpingError )
+{
+    IJ.log("\nCalculating warping error by minimizing splits and mergers...");
+    metric = new WarpingError( originalLabels, proposedLabels );   
+
+    maxThres = binaryProposal ? 0.1 : 0.9;
+     
+    warpingError = metric.getMinimumSplitsAndMergersErrorValue( 0.1, maxThres, 0.1, false, 10 );
+    IJ.log("  Minimum warping error = " + warpingError);
+    IJ.log("  # errors (splits + mergers pixels) = " + Math.round(warpingError * originalLabels.getWidth() * originalLabels.getHeight() * originalLabels.getImageStackSize() ) );
+}
+  
+if( calculateRandError )
+{   
+    IJ.log("\nCalculating maximal F-score of the foreground-restricted Rand index...");
+    metric = new RandError( originalLabels, proposedLabels );
+	maxThres = binaryProposal ? 0.0 : 1.0;    
+    maxFScore = metric.getForegroundRestrictedRandIndexMaximalFScore( 0.0, maxThres, 0.1 );  
+    IJ.log("  Minimum foreground-restricted Rand error: " + (1.0 - maxFScore) );     
+}
+
+if( calculateVRandAfterThinning )
+{   
+    IJ.log("\nCalculating maximal foreground-restricted Rand score after thinning...");
+    metric = new RandError( originalLabels, proposedLabels );
+    maxThres = binaryProposal ? 0.0 : 1.0;
+    maxFScore = metric.getMaximalVRandAfterThinning( 0.0, maxThres, 0.1, true );  
+    IJ.log("  Maximum foreground-restricted Rand score after thinning: \n" + maxFScore );     
+}
+
+if( calculateVInfoAfterThinning )
+{   
+    IJ.log("\nCalculating maximal foreground-restricted information theoretic score after thinning...");
+    metric = new VariationOfInformation( originalLabels, proposedLabels );
+    maxThres = binaryProposal ? 0.0 : 1.0;
+    maxFScore = metric.getMaximalVInfoAfterThinning( 0.0, maxThres, 0.1 );  
+    IJ.log("  Maximum foreground-restricted information theoretic score after thinning: \n" + maxFScore );     
+}
+
+IJ.selectWindow("Log");
+hyphon = proposalTitle.indexOf("-");
+dot = proposalTitle.indexOf(".");
+logName = "Log" + proposalTitle.substring( hyphon, dot ) + ".txt";
+IJ.saveAs("Text", "/home/iarganda/data/challenge-2d/" + logName );
