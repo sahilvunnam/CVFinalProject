@@ -1,0 +1,96 @@
+names:
+- '-'
+- Apple
+- Apple -Green-
+- Apple -Red-
+- Artichoke
+- Asparagus
+- Avocado
+- Banana
+- Beans
+- Bell Pepper
+- Blackberries
+- Blueberries
+- Book
+- Boxed Food
+- Bread
+- Broccoli
+- Brussel Sprouts
+- Butter
+- Cabbage
+- Canned Fish
+- Canned Food
+- Cantaloupe
+- Carrots
+- Cauliflower
+- Cereal
+- Cerealbox
+- Cheese
+- Clementine
+- Coffee
+- Condiment
+- Corn
+- Creamer
+- Cucumber
+- Detergent
+- Drinks
+- Egg
+- Eggplant
+- Eggs
+- Fish
+- Galia
+- Garlic
+- Grains
+- Grapes
+- Honeydew
+- Jar
+- Juice
+- Kiwi
+- Lemon
+- Lettuce
+- Meat
+- Meat -Red-
+- Milk
+- Mushroom
+- Mushrooms
+- Nectarine
+- Noodles
+- Oats
+- Orange
+- Oranges
+- Peach
+- Peanut Butter
+- Pear
+- Pickled Food -Jar-
+- Pineapple
+- Plum
+- Pomegranate
+- Popcorn
+- Potatoes -Package-
+- Raspberries
+- Rice
+- Salad
+- Sauce
+- Seasoning -Thin Package-
+- Snack
+- Soda
+- Spinach
+- Squash
+- Strawberries
+- Strawberry
+- Tofu
+- Tomatoes
+- Water
+- Watermelon
+- Yogurt
+- Zucchini
+nc: 85
+roboflow:
+  license: CC BY 4.0
+  project: food-imgae-yolo
+  url: https://universe.roboflow.com/food-image-classification/food-imgae-yolo/dataset/2
+  version: 2
+  workspace: food-image-classification
+test: /Users/aariziqbal/Desktop/Homework/ECS_174/project/CVFinalProject/YoloModel/Food-Imgae---YOLO-2/test/images
+train: /Users/aariziqbal/Desktop/Homework/ECS_174/project/CVFinalProject/YoloModel/Food-Imgae---YOLO-2/train/images
+val: /Users/aariziqbal/Desktop/Homework/ECS_174/project/CVFinalProject/YoloModel/Food-Imgae---YOLO-2/valid/images
